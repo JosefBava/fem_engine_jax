@@ -5,13 +5,13 @@ jax.config.update("jax_enable_x64", True)
 
 
 class Hooke3D:
-    """رفتار همسانگرد خطی ۳ بعدی بر اساس کرنش‌های کوچک"""
+    """3D linear elastic material model based on Hooke's law. This class computes the strain energy density given the deformation gradient F. It uses Young's modulus and Poisson's ratio to define the material properties."""
 
     def __init__(self, youngs_modulus: float, poisson_ratio: float):
         self.youngs_modulus = jnp.float64(youngs_modulus)
         self.poisson_ratio = jnp.float64(poisson_ratio)
 
-        # محاسبه ثوابت لامه: لامبدا (Lame's first parameter) و مو (Shear Modulus)
+        # Compute Lamé parameters (λ and μ) from Young's modulus and Poisson's ratio
         self.lame_lambda = (
             self.youngs_modulus
             * self.poisson_ratio
@@ -23,16 +23,15 @@ class Hooke3D:
 
     def strain_energy(self, F):
         """
-        محاسبه چگالی انرژی پتانسیل کرنش
-        F: گرادیان تغییرشکل (ماتریس 3x3)
+        Compute the strain energy density (energy per unit volume) for a given deformation gradient F using the linear elastic Hooke's law.
         """
-        # گرادیان جابجایی: H = F - I
+        #  H = F - I
         H = F - jnp.eye(3, dtype=F.dtype)
 
-        # تانسور کرنش کوچک متقارن: epsilon = 0.5 * (H + H^T)
+        #  epsilon = 0.5 * (H + H^T)
         strain = 0.5 * (H + H.T)
 
-        # چگالی انرژی کرنش خطی: 0.5 * lambda * (tr(eps))^2 + mu * tr(eps^2)
+        #  0.5* lambda * (tr(eps))^2 + mu * tr(eps^2)
         trace_strain = jnp.trace(strain)
         energy_density = (
             0.5 * self.lame_lambda * (trace_strain**2)

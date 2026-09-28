@@ -5,13 +5,13 @@ jax.config.update("jax_enable_x64", True)
 
 
 class NeoHookean3D:
-    """مدل رفتاری هایپرالاستیک نئوهوکین تراکم‌پذیر در حالت ۳ بعدی"""
+    """3D compressible Neo-Hookean material model. This class computes the strain energy density given the deformation gradient F. It uses Young's modulus and Poisson's ratio to define the material properties."""
 
     def __init__(self, youngs_modulus: float, poisson_ratio: float):
         self.youngs_modulus = jnp.float64(youngs_modulus)
         self.poisson_ratio = jnp.float64(poisson_ratio)
 
-        # محاسبه ثوابت لامه: مو (مدول برشی) و لامبدا
+        # Compute Lamé parameters (λ and μ) from Young's modulus and Poisson's ratio
         self.shear_modulus = self.youngs_modulus / (
             2.0 * (1.0 + self.poisson_ratio)
         )
@@ -23,25 +23,21 @@ class NeoHookean3D:
 
     def strain_energy(self, F: jnp.ndarray) -> jnp.ndarray:
         """
-        محاسبه چگالی انرژی پتانسیل کرنش
-        ورودی:
-            F: گرادیان تغییرشکل (ماتریس 3x3)
-        خروجی:
-            اسکالر انرژی چگالی کرنش
+        Compute the strain energy density (energy per unit volume) for a given deformation gradient F using the compressible Neo-Hookean model.
         """
-        # تانسور کوشی-گرین راست: C = F^T @ F
+        # Compute the right Cauchy-Green deformation tensor: C = F^T * F
         C = F.T @ F
 
-        # ناوردای اول کرنش: I_C = tr(C)
+        # Compute the first invariant of C: I_C = tr(C)
         I_C = jnp.trace(C)
 
-        # نسبت تغییر حجم المان: J = det(F)
+        # Compute the determinant of F: J = det(F)
         J = jnp.linalg.det(F)
 
-        # لگاریتم تغییر حجم
+        # Compute the logarithm of J: ln(J)
         ln_J = jnp.log(J)
 
-        # انرژی کرنش نئوهوکین تراکم‌پذیر
+        # Compute the strain energy density using the Neo-Hookean formulation
         psi = (
             0.5 * self.shear_modulus * (I_C - 3.0 - 2.0 * ln_J)
             + 0.5 * self.lame_lambda * (ln_J**2)

@@ -38,14 +38,14 @@ class BoundaryConditions:
         dofs = self.constrained_dofs
         vals = self.prescribed_values
 
-        # تصحیح بردار پسماند آزاد بر مبنای جابجایی باقیمانده تا هدف
+        # set the target displacements for the constrained DOFs
         delta_u_target = vals - u_current[dofs]
 
-        # اصلاح بردار پسماند سطرهای آزاد برای حفظ تقارن یا حذف ستون
+        # Modify the residual to account for the prescribed displacements
         residual_mod = residual - tangent[:, dofs] @ delta_u_target
         residual_mod = residual_mod.at[dofs].set(delta_u_target)
 
-        # صفر کردن سطر و ستون و قرار دادن 1 روی قطر اصلی
+        # Modify the tangent stiffness matrix to enforce the boundary conditions
         tangent_mod = tangent.at[dofs, :].set(0.0)
         tangent_mod = tangent_mod.at[:, dofs].set(0.0)
         tangent_mod = tangent_mod.at[dofs, dofs].set(1.0)
