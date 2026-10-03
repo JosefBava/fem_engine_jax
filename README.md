@@ -5,19 +5,23 @@
 
 ### Hex8 Hooke compression
 
-![alt text](hex8_hook_com.gif)
+
+<img width="896" height="348" alt="hex8_hook_com" src="https://github.com/user-attachments/assets/dbd6af0d-5288-47b1-9633-23c8bc113be3" />
 
 ### Hex8 Neo-Hookean shear
 
 
-![alt text](hex8_neoh_shear.gif)
+<img width="896" height="348" alt="hex8_neoh_shear" src="https://github.com/user-attachments/assets/47cca6cd-fab3-475f-b883-0f1b5282da78" />
+
 ### Tet4 Hooke cantilever
 
 
-![alt text](tet4_hook_cant.gif)
+<img width="896" height="348" alt="tet4_hook_cant" src="https://github.com/user-attachments/assets/4be4425a-37ea-420d-97f3-ae1149f84126" />
+
 ### Tet4 Neo-Hookean tension
 
-![alt text](tet4_neoh_ten.gif)
+
+<img width="896" height="348" alt="tet4_neoh_ten" src="https://github.com/user-attachments/assets/d0dd280b-871e-40c6-a577-bed67b2da52e" />
 
 These are useful for presentation, validation, and visual comparison of the benchmark response across different element formulations and constitutive laws.
 
