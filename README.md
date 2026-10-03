@@ -1,6 +1,5 @@
 # FEM benchmark examples
 
-## Result 
 
 
 
@@ -21,6 +20,7 @@
 ![alt text](tet4_neoh_ten.gif)
 
 These are useful for presentation, validation, and visual comparison of the benchmark response across different element formulations and constitutive laws.
+
 
 This finite-element example set demonstrates the JAX-based Newton solver for both linear-elastic and hyperelastic 3D solids. The examples compare `Hex8` and `Tet4` element formulations and validate the consistent tangent implementation through convergence plots and load-displacement curves.
 
