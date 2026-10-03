@@ -3,7 +3,7 @@ from typing import Callable, Tuple, Dict, Any
 import jax
 import jax.numpy as jnp
 
-# تضمین دقت محاسباتی ۶۴ بیتی
+
 jax.config.update("jax_enable_x64", True)
 
 

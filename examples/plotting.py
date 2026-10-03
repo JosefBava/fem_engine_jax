@@ -2,6 +2,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.animation import FuncAnimation, PillowWriter
 
 
 class FEMPlotter:
@@ -67,14 +68,17 @@ class FEMPlotter:
         axis.set_zlim(center[2] - radius, center[2] + radius)
 
     def plot_convergence(self, history, filename=None, show=False):
-        """Plot residual norm against the global Newton iteration number."""
+        """Plot the residual norm on a logarithmic scale against the global Newton iteration number."""
         residuals = []
         for step in history:
-            residuals.extend(step["history"])
+            residuals.extend(step.get("history", []))
+        if not residuals:
+            raise ValueError("History does not contain any residual values to plot.")
+
         figure, axis = plt.subplots(figsize=(8, 5))
         axis.semilogy(range(1, len(residuals) + 1), residuals, "o-", color="#0f766e")
         axis.set_xlabel("Newton iteration")
-        axis.set_ylabel("Residual norm")
+        axis.set_ylabel(r"$\log_{10} \|R\|$")
         axis.set_title("Newton-Raphson convergence")
         axis.grid(True, which="both", alpha=0.25)
         figure.tight_layout()
@@ -82,6 +86,100 @@ class FEMPlotter:
             filename = Path(filename)
             filename.parent.mkdir(parents=True, exist_ok=True)
             figure.savefig(filename, dpi=180, bbox_inches="tight")
+        if show:
+            plt.show()
+        plt.close(figure)
+        return figure
+
+    def plot_load_displacement(self, history, filename=None, show=False, title="Load vs. displacement"):
+        """Plot the applied load against the measured displacement using the load-step summary data."""
+        if not history:
+            raise ValueError("A non-empty history is required to plot the load-displacement curve.")
+
+        if isinstance(history, dict):
+            history = [history]
+
+        x_values = []
+        y_values = []
+        for sample in history:
+            if "load_factor" in sample and "mean_top_displacement" in sample:
+                load_value = sample.get("load_factor")
+                displacement_value = sample.get("mean_top_displacement")
+            elif "x" in sample and "y" in sample:
+                load_value = sample.get("y")
+                displacement_value = sample.get("x")
+            elif len(sample) == 2:
+                displacement_value, load_value = sample
+            else:
+                raise ValueError(
+                    "Each history entry must provide a pair such as {'load_factor': ..., 'mean_top_displacement': ...}."
+                )
+            x_values.append(float(displacement_value))
+            y_values.append(float(load_value))
+
+        figure, axis = plt.subplots(figsize=(8, 5))
+        axis.plot(x_values, y_values, "o-", color="#1f77b4", linewidth=2)
+        axis.set_xlabel("Displacement")
+        axis.set_ylabel("Applied load")
+        axis.set_title(title)
+        axis.grid(True, alpha=0.25)
+        figure.tight_layout()
+        if filename is not None:
+            filename = Path(filename)
+            filename.parent.mkdir(parents=True, exist_ok=True)
+            figure.savefig(filename, dpi=180, bbox_inches="tight")
+        if show:
+            plt.show()
+        plt.close(figure)
+        return figure
+
+    def plot_load_steps_gif(self, mesh, history, filename=None, show=False, scale=None, interval=200, title="Load-step evolution"):
+        """Create a GIF that animates the mesh at each load step."""
+        if isinstance(history, dict):
+            history = [history]
+
+        states = []
+        for state in history:
+            if isinstance(state, dict) and "displacement" in state:
+                displacement = state["displacement"]
+            elif isinstance(state, dict) and "u" in state:
+                displacement = state["u"]
+            elif isinstance(state, dict) and "state" in state and isinstance(state["state"], dict):
+                displacement = state["state"].get("displacement", state["state"].get("u"))
+            else:
+                displacement = state
+            if displacement is None:
+                raise ValueError("Each history entry must include a displacement field.")
+            states.append(np.asarray(displacement, dtype=float).reshape((-1, 3)))
+
+        if not states:
+            raise ValueError("A non-empty history is required to build the load-step GIF.")
+
+        coordinates = np.asarray(mesh.coordinates, dtype=float)
+        figure = plt.figure(figsize=(10, 7))
+        axis = figure.add_subplot(111, projection="3d")
+
+        def update(frame_index):
+            displacement = states[frame_index]
+            magnitude = np.linalg.norm(displacement, axis=1)
+            deformed = coordinates + self._deformation_scale(coordinates, displacement, scale) * displacement
+            axis.clear()
+            self._draw_mesh(axis, coordinates, mesh.connectivities, color="#9aa4b2", alpha=0.45, linestyle="--")
+            self._draw_mesh(axis, deformed, mesh.connectivities, color="#0f766e", alpha=0.9, linestyle="-")
+            scatter = axis.scatter(deformed[:, 0], deformed[:, 1], deformed[:, 2], c=magnitude, cmap="viridis", s=28)
+            axis.set_title(f"{title} — step {frame_index + 1}/{len(states)}")
+            axis.set_xlabel("x")
+            axis.set_ylabel("y")
+            axis.set_zlabel("z")
+            self._set_equal_aspect(axis, np.vstack((coordinates, deformed)))
+            return scatter,
+
+        animation = FuncAnimation(figure, update, frames=len(states), interval=interval, blit=False)
+        if filename is not None:
+            path = Path(filename)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            fps = max(1, int(round(1000 / max(interval, 1))))
+            animation.save(path, writer=PillowWriter(fps=fps))
         if show:
             plt.show()
         plt.close(figure)
@@ -102,7 +200,7 @@ class ParaViewExporter:
         self.write_vtu(mesh, np.zeros_like(np.asarray(displacement)), output_dir / before_name)
         self.write_vtu(mesh, displacement, output_dir / after_name)
 
-        pvd_path = output_dir / f"{name}.pvd"
+        pvd_path = output_dir / f"{name}_before_after.pvd"
         pvd_path.write_text(
             '<?xml version="1.0"?>\n'
             '<VTKFile type="Collection" version="0.1" byte_order="LittleEndian">\n'
@@ -124,7 +222,7 @@ class ParaViewExporter:
             self.write_vtu(mesh, state["displacement"], output_dir / filename)
             datasets.append((state["load_factor"], filename))
 
-        pvd_path = output_dir / f"{name}.pvd"
+        pvd_path = output_dir / f"{name}_steps.pvd"
         entries = "\n".join(
             f'    <DataSet timestep="{time}" group="" part="0" file="{filename}"/>'
             for time, filename in datasets
@@ -146,17 +244,20 @@ class ParaViewExporter:
         deformed = coordinates + displacement
         connectivity = np.asarray(mesh.connectivities, dtype=int)
         n_cells, nodes_per_cell = connectivity.shape
-        offsets = np.arange(1, n_cells + 1) * nodes_per_cell
+        offsets = np.cumsum(np.full(n_cells, nodes_per_cell, dtype=int))
         cell_type = self._cell_types[nodes_per_cell]
         magnitude = np.linalg.norm(displacement, axis=1)
 
         def values(array):
-            return " ".join(f"{value:.16e}" for value in array.reshape(-1))
+            return " ".join(f"{value:.16e}" for value in np.asarray(array).reshape(-1))
+
+        def integer_values(array):
+            return " ".join(str(int(value)) for value in np.asarray(array).reshape(-1))
 
         points = values(deformed)
-        cells = values(connectivity)
-        cell_offsets = values(offsets)
-        cell_types = values(np.full(n_cells, cell_type, dtype=np.uint8))
+        cells = integer_values(connectivity)
+        cell_offsets = integer_values(offsets)
+        cell_types = integer_values(np.full(n_cells, cell_type, dtype=np.uint8))
         vectors = values(displacement)
         scalars = values(magnitude)
         xml = f'''<?xml version="1.0"?>

@@ -21,7 +21,7 @@ def main():
     coordinates = np.asarray(mesh.coordinates)
     bottom = np.flatnonzero(np.isclose(coordinates[:, 2], 0.0))
     top = np.flatnonzero(np.isclose(coordinates[:, 2], 1.0))
-    constrained = dofs_for_nodes(bottom, (2,)) + dofs_for_nodes([int(bottom[0])], (0, 1))
+    constrained = dofs_for_nodes(bottom, (0, 1, 2))
     prescribed = [0.0] * len(constrained)
     constrained += dofs_for_nodes(top, (0,))
     prescribed += [0.35] * len(top)

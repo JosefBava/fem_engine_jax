@@ -92,16 +92,61 @@ def solve_load_steps(mesh, element_type, material, constrained_dofs, prescribed_
     return displacement, history
 
 
-def run_and_plot(name, mesh, displacement, history, output_dir="results"):
+def summarize_load_response(mesh, history, axis=2, top_fraction=1.0):
+    """Return a load-step summary with the mean displacement of the loaded surface."""
+    coordinates = jnp.asarray(mesh.coordinates)
+    axis_values = coordinates[:, axis]
+    maximum_value = float(jnp.max(axis_values))
+    if top_fraction < 1.0:
+        threshold = maximum_value * top_fraction
+        top_nodes = jnp.nonzero(axis_values >= threshold)[0]
+    else:
+        top_nodes = jnp.nonzero(jnp.isclose(axis_values, maximum_value))[0]
+
+    response = []
+    for step in history:
+        displacement = jnp.asarray(step["displacement"]).reshape((-1, 3))
+        mean_top_displacement = float(jnp.mean(displacement[top_nodes, axis]))
+        response.append({
+            "load_factor": float(step["load_factor"]),
+            "mean_top_displacement": mean_top_displacement,
+            "max_top_displacement": float(jnp.max(jnp.abs(displacement[top_nodes, axis]))),
+        })
+    return response
+
+
+def run_and_plot(name, mesh, displacement, history, output_dir="results", load_axis=2):
     if __package__ in (None, ""):
         from plotting import FEMPlotter, ParaViewExporter
     else:
         from .plotting import FEMPlotter, ParaViewExporter
 
     output_path = Path(output_dir) / f"{name}.png"
+    convergence_path = Path(output_dir) / f"{name}_convergence.png"
+    load_path = Path(output_dir) / f"{name}_load_displacement.png"
+    gif_path = Path(output_dir) / f"{name}_paraview_steps.gif"
+    collection_path = Path(output_dir) / f"{name}_steps.pvd"
+    before_after_path = Path(output_dir) / f"{name}_before_after.pvd"
     plotter = FEMPlotter()
     plotter.plot(mesh, displacement, title=name.replace("_", " ").title(), filename=output_path)
-    plotter.plot_convergence(history, filename=Path(output_dir) / f"{name}_convergence.png")
+    plotter.plot_convergence(history, filename=convergence_path)
+
+    response = summarize_load_response(mesh, history, axis=load_axis)
+    plotter.plot_load_displacement(
+        response,
+        filename=load_path,
+        title=f"{name.replace('_', ' ').title()} — load vs. displacement",
+    )
+
+    states = [{"load_factor": step["load_factor"], "displacement": step["displacement"]} for step in history]
+    ParaViewExporter().write_collection(mesh, states, output_dir, name)
+    plotter.plot_load_steps_gif(
+        mesh,
+        states,
+        filename=gif_path,
+        title=f"{name.replace('_', ' ').title()} — ParaView load steps",
+    )
+
     ParaViewExporter().write_before_after(mesh, displacement, output_dir, name)
     with (Path(output_dir) / f"{name}_iterations.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
@@ -111,7 +156,18 @@ def run_and_plot(name, mesh, displacement, history, output_dir="results"):
             print(f"load step {step_index} ({step['load_factor']:.3f}): {residual_text}")
             for iteration, residual in enumerate(step["history"], start=1):
                 writer.writerow((step_index, step["load_factor"], iteration, residual))
+    with (Path(output_dir) / f"{name}_load_curve.csv").open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(("load_step", "load_factor", "mean_top_displacement", "max_top_displacement"))
+        for step_index, sample in enumerate(response, start=1):
+            writer.writerow((step_index, sample["load_factor"], sample["mean_top_displacement"], sample["max_top_displacement"]))
+
     print(f"{name}: converged in {sum(item['iterations'] for item in history)} Newton iterations")
     print(f"plot: {output_path}")
-    print(f"paraview: {Path(output_dir) / f'{name}.pvd'}")
+    print(f"convergence: {convergence_path}")
+    print(f"load-displacement: {load_path}")
+    print(f"paraview-gif: {gif_path}")
+    print(f"paraview-steps: {collection_path}")
+    print(f"paraview-before-after: {before_after_path}")
     print(f"iterations: {Path(output_dir) / f'{name}_iterations.csv'}")
+    print(f"load-curve: {Path(output_dir) / f'{name}_load_curve.csv'}")
