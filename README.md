@@ -31,24 +31,25 @@ Each example uses continuation loading and writes benchmark outputs to `results/
 
 Open the `.pvd` file in ParaView. Time `0` is the undeformed mesh and time `1` is the converged deformed mesh. The VTU files contain the deformed coordinates plus `Displacement` and `DisplacementMagnitude` point fields. The full Newton history remains available in the CSV and convergence PNG. The generated load-displacement curves are useful for comparing the linear Hooke response against the large-strain Neo-Hookean response within the same finite-element framework.
 
-## Result videos
+## Result 
 
-These benchmark animations are embedded as GIFs so they play directly in GitHub.
+
 
 ### Hex8 Hooke compression
 
-![Hex8 Hooke compression](../../results/videos/hex8_hook_com.gif)
+![alt text](hex8_hook_com.gif)
 
 ### Hex8 Neo-Hookean shear
 
-![Hex8 Neo-Hookean shear](../../results/videos/hex8_neoh_shear.gif)
 
+![alt text](hex8_neoh_shear.gif)
 ### Tet4 Hooke cantilever
 
-![Tet4 Hooke cantilever](../../results/videos/tet4_hook_cant.gif)
 
+![alt text](tet4_hook_cant.gif)
 ### Tet4 Neo-Hookean tension
 
-![Tet4 Neo-Hookean tension](../../results/videos/tet4_neoh_ten.gif)
+![alt text](tet4_neoh_ten.gif)
 
-These videos are useful for presentation, validation, and visual comparison of the benchmark response across different element formulations and constitutive laws.
+These are useful for presentation, validation, and visual comparison of the benchmark response across different element formulations and constitutive laws.
+
